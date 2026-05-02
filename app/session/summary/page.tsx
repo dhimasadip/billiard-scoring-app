@@ -50,6 +50,34 @@ export default function SummaryPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Match #', 'Team A', 'Score A', 'Score B', 'Team B', 'Winner', 'Break Player'];
+    const rows = session.results.map(res => {
+      const match = session.schedule.find(m => m.id === res.matchId);
+      const teamA = match?.teamA.players.map(pid => session.players.find(p => p.id === pid)?.name).join(' & ');
+      const teamB = match?.teamB.players.map(pid => session.players.find(p => p.id === pid)?.name).join(' & ');
+      const breakPlayer = session.players.find(p => p.id === match?.breakPlayerId)?.name;
+      return [
+        match?.index,
+        teamA,
+        res.teamAScore,
+        res.teamBScore,
+        teamB,
+        res.winningSide === 'A' ? 'Team A' : 'Team B',
+        breakPlayer
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `billiard-session-${session.id.slice(0, 8)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 flex flex-col max-w-lg mx-auto pb-24">
       <header className="text-center mb-8">
@@ -111,6 +139,12 @@ export default function SummaryPage() {
 
       {/* Actions */}
       <div className="space-y-3">
+        <button
+          onClick={handleExportCSV}
+          className="w-full py-3 bg-surface text-text-primary rounded-xl font-bold border border-border text-xs mb-4"
+        >
+          EXPORT CSV
+        </button>
         <button
           onClick={handleNewSession}
           className="w-full py-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
