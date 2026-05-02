@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Trophy, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlayerStats } from '@/lib/engine/types';
+import { BreakTracker } from '@/components/scoreboard/BreakTracker';
 
 export default function ScoreboardPage() {
   const router = useRouter();
@@ -93,6 +94,10 @@ export default function ScoreboardPage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="mb-8">
+        <BreakTracker />
       </div>
 
       {/* Full Table */}

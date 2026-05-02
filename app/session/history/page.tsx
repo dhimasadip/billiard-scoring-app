@@ -35,12 +35,36 @@ export default function HistoryPage() {
           const match = session.schedule.find(m => m.id === res.matchId);
           if (!match) return null;
 
+          const isLastMatch = idx === 0;
+
           return (
             <div key={res.matchId} className="bg-surface rounded-xl border border-border p-4">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Match #{match.index}</span>
-                <div className="bg-primary/10 px-2 py-0.5 rounded flex items-center gap-1">
-                  <span className="text-[9px] font-bold text-primary uppercase">Team {res.winningSide} WIN</span>
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/10 px-2 py-0.5 rounded flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-primary uppercase">Team {res.winningSide} WIN</span>
+                  </div>
+                  {isLastMatch && (
+                    <button 
+                      onClick={() => {
+                        const newA = prompt('Correct score for Team A:', res.teamAScore.toString());
+                        const newB = prompt('Correct score for Team B:', res.teamBScore.toString());
+                        if (newA !== null && newB !== null) {
+                          const a = parseInt(newA);
+                          const b = parseInt(newB);
+                          if (!isNaN(a) && !isNaN(b) && a !== b) {
+                            useSessionStore.getState().editLastResult(a, b);
+                          } else {
+                            alert('Invalid scores. No ties allowed.');
+                          }
+                        }
+                      }}
+                      className="p-1 hover:bg-surface-dim rounded text-text-secondary"
+                    >
+                      <span className="text-[9px] font-bold uppercase underline">Edit</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
