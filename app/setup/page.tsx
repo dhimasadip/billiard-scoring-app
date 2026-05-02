@@ -50,6 +50,10 @@ export default function SetupPage() {
   };
 
   const handleGenerate = () => {
+    if (session && !confirm('Are you sure you want to start a new session? Current progress will be lost.')) {
+      return;
+    }
+
     const validPlayers: Player[] = players
       .filter(name => name.trim() !== '')
       .map(name => ({
