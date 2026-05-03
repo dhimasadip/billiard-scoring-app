@@ -12,7 +12,10 @@ export type StatDelta = {
  * Validates that the scores are allowed (no ties).
  */
 export function validateResult(scoreA: number, scoreB: number): boolean {
-  return scoreA !== scoreB;
+  if (scoreA === scoreB) return false; // No ties
+  if (scoreA < 0 || scoreB < 0) return false;
+  if (scoreA > 8 || scoreB > 8) return false;
+  return true;
 }
 
 /**
