@@ -1,6 +1,6 @@
 {
-  "name": "Rack Up Billiard Scorer",
-  "short_name": "Rack Up",
+  "name": "CUESCORE",
+  "short_name": "CUESCORE",
   "description": "Premium billiard session tracker and scoreboard",
   "start_url": "/",
   "display": "standalone",

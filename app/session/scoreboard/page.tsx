@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Trophy, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlayerStats } from '@/lib/engine/types';
-import { BreakTracker } from '@/components/scoreboard/BreakTracker';
+
 
 export default function ScoreboardPage() {
   const router = useRouter();
@@ -50,55 +50,27 @@ export default function ScoreboardPage() {
     };
   });
 
-  // Sort by wins, then total points
+  // Sorting: highest points first, then wins, then winRate
   const sortedStats = [...stats].sort((a, b) => {
+    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.wins !== a.wins) return b.wins - a.wins;
-    return b.totalPoints - a.totalPoints;
+    return b.winRate - a.winRate;
   });
 
   return (
     <div className="max-w-lg mx-auto p-4">
       <header className="mb-6 flex justify-between items-end">
         <div>
-          <h1 className="text-xl font-display font-bold text-text-primary">Standings</h1>
-          <p className="text-xs text-text-secondary">Session Leaderboard</p>
+          <h2 className="text-[10px] font-display font-bold tracking-[0.2em] text-text-secondary uppercase mb-1">Leaderboard</h2>
+          <h1 className="text-xl font-display font-bold text-text-primary leading-tight">{session.title}</h1>
+          <p className="text-[10px] text-text-secondary mt-1 opacity-60">
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
         </div>
         <div className="text-xs text-text-secondary bg-surface px-2 py-1 rounded border border-border">
           {session.results.length} / {session.schedule.length} Matches
         </div>
       </header>
-
-      {/* Podium / Top 3 (Simplified for Phase 3) */}
-      <div className="space-y-3 mb-8">
-        {sortedStats.slice(0, 3).map((stat, idx) => {
-          const player = session.players.find(p => p.id === stat.playerId);
-          return (
-            <div 
-              key={stat.playerId} 
-              className={cn(
-                "flex items-center gap-4 p-4 rounded-xl border",
-                idx === 0 ? "bg-primary/10 border-primary shadow-lg shadow-primary/5" : "bg-surface border-border"
-              )}
-            >
-              <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs",
-                idx === 0 ? "bg-gold text-black" : "bg-surface-dim border border-border text-text-secondary"
-              )}>
-                {idx + 1}
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-sm">{player?.name}</div>
-                <div className="text-[10px] text-text-secondary uppercase tracking-wider">{stat.wins} Wins · {stat.totalPoints} Pts</div>
-              </div>
-              {idx === 0 && <Trophy size={20} className="text-gold" />}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mb-8">
-        <BreakTracker />
-      </div>
 
       {/* Full Table */}
       <div className="bg-surface rounded-xl border border-border overflow-hidden">
@@ -116,11 +88,27 @@ export default function ScoreboardPage() {
           <tbody className="divide-y divide-border">
             {sortedStats.map((stat, idx) => {
               const player = session.players.find(p => p.id === stat.playerId);
+              const isFirst = idx === 0;
+
               return (
-                <tr key={stat.playerId} className="hover:bg-primary/5">
-                  <td className="px-4 py-4 text-text-secondary font-medium">{idx + 1}</td>
+                <tr 
+                  key={stat.playerId} 
+                  className={cn(
+                    "transition-colors",
+                    isFirst ? "bg-primary/10" : "hover:bg-primary/5"
+                  )}
+                >
+                  <td className="px-4 py-4 text-text-secondary font-medium">
+                    {isFirst ? (
+                      <Trophy size={14} className="text-gold" />
+                    ) : (
+                      idx + 1
+                    )}
+                  </td>
                   <td className="py-4">
-                    <div className="font-bold text-text-primary">{player?.name}</div>
+                    <div className={cn("font-bold", isFirst ? "text-primary" : "text-text-primary")}>
+                      {player?.name}
+                    </div>
                     <div className="text-[9px] text-text-secondary">{(stat.winRate * 100).toFixed(0)}% Win Rate</div>
                   </td>
                   <td className="py-4 text-right font-medium tabular-nums">{stat.gamesPlayed}</td>

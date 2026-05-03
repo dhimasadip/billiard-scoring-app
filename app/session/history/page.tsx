@@ -1,11 +1,16 @@
 'use client';
 
 import { useSessionStore } from '@/store/sessionStore';
-import { History as HistoryIcon, ChevronRight } from 'lucide-react';
+import { History as HistoryIcon, ChevronRight, Edit2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Modal } from '@/components/ui/Modal';
+import { useState } from 'react';
 
 export default function HistoryPage() {
-  const { session } = useSessionStore();
+  const { session, editLastResult } = useSessionStore();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editScoreA, setEditScoreA] = useState('');
+  const [editScoreB, setEditScoreB] = useState('');
 
   if (!session) return null;
 
@@ -48,21 +53,14 @@ export default function HistoryPage() {
                   {isLastMatch && (
                     <button 
                       onClick={() => {
-                        const newA = prompt('Correct score for Team A:', res.teamAScore.toString());
-                        const newB = prompt('Correct score for Team B:', res.teamBScore.toString());
-                        if (newA !== null && newB !== null) {
-                          const a = parseInt(newA);
-                          const b = parseInt(newB);
-                          if (!isNaN(a) && !isNaN(b) && a !== b) {
-                            useSessionStore.getState().editLastResult(a, b);
-                          } else {
-                            alert('Invalid scores. No ties allowed.');
-                          }
-                        }
+                        setEditScoreA(res.teamAScore.toString());
+                        setEditScoreB(res.teamBScore.toString());
+                        setIsEditModalOpen(true);
                       }}
-                      className="p-1 hover:bg-surface-dim rounded text-text-secondary"
+                      className="p-1.5 bg-surface-dim hover:bg-border rounded text-text-secondary flex items-center gap-1 transition-colors"
                     >
-                      <span className="text-[9px] font-bold uppercase underline">Edit</span>
+                      <Edit2 size={10} />
+                      <span className="text-[9px] font-bold uppercase">Edit</span>
                     </button>
                   )}
                 </div>
@@ -100,6 +98,62 @@ export default function HistoryPage() {
           );
         })}
       </div>
+
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Edit Last Match Result"
+        footer={
+          <>
+            <button 
+              onClick={() => setIsEditModalOpen(false)}
+              className="flex-1 py-3 bg-surface border border-border rounded-xl font-bold text-xs"
+            >
+              CANCEL
+            </button>
+            <button 
+              onClick={() => {
+                const a = parseInt(editScoreA);
+                const b = parseInt(editScoreB);
+                if (!isNaN(a) && !isNaN(b) && a !== b) {
+                  editLastResult(a, b);
+                  setIsEditModalOpen(false);
+                }
+              }}
+              disabled={editScoreA === editScoreB || !editScoreA || !editScoreB}
+              className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs shadow-lg shadow-primary/20 disabled:opacity-50"
+            >
+              SAVE CHANGES
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Team A Score</label>
+              <input 
+                type="number"
+                value={editScoreA}
+                onChange={(e) => setEditScoreA(e.target.value)}
+                className="w-full bg-surface-dim border border-border rounded-xl p-3 text-center text-xl font-bold font-display"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Team B Score</label>
+              <input 
+                type="number"
+                value={editScoreB}
+                onChange={(e) => setEditScoreB(e.target.value)}
+                className="w-full bg-surface-dim border border-border rounded-xl p-3 text-center text-xl font-bold font-display"
+              />
+            </div>
+          </div>
+          {editScoreA === editScoreB && editScoreA !== '' && (
+            <p className="text-[10px] text-danger text-center font-medium">Scores cannot be equal. No ties allowed.</p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

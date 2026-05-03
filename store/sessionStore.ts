@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Session, Player, ScheduleDepth, MatchResult, PlayerId, Match } from '@/lib/engine/types';
+import { Session, Player, ScheduleDepth, MatchResult, PlayerId, Match, BreakCycle } from '@/lib/engine/types';
 import { generateSchedule } from '@/lib/engine/schedule';
 import { assignBreakPlayer } from '@/lib/engine/breakRotation';
 import { validateResult, computeResult } from '@/lib/engine/scoring';
@@ -9,10 +9,12 @@ interface SessionState {
   session: Session | null;
   
   // Actions
-  createSession: (players: Player[], depth: ScheduleDepth) => void;
+  createSession: (title: string, players: Player[], depth: ScheduleDepth) => void;
   startMatch: (index: number) => void;
   submitResult: (matchId: string, scoreA: number, scoreB: number) => void;
   editLastResult: (scoreA: number, scoreB: number) => void;
+  extendSession: () => void;
+  endSessionEarly: () => void;
   resetSession: () => void;
 }
 
@@ -21,28 +23,38 @@ export const useSessionStore = create<SessionState>()(
     (set, get) => ({
       session: null,
 
-      createSession: (players, depth) => {
+      createSession: (title, players, depth) => {
         const schedule = generateSchedule(players, depth);
         
         // Initialize break cycle
-        let currentCycle = {
+        let currentCycle: BreakCycle = {
           queue: players.map(p => p.id),
-          pointer: 0,
-          cycleNumber: 0,
-          brokenThisCycle: [] as PlayerId[],
+          brokenThisCycle: [],
         };
 
-        // Assign break players for all matches (pre-calculated or dynamically?)
-        // The plan says "For each match: find the player...", let's pre-assign them.
-        const finalizedSchedule: Match[] = [];
-        for (const m of schedule) {
-          const { breakPlayerId, updatedCycle } = assignBreakPlayer(m, currentCycle);
-          finalizedSchedule.push({ ...m, breakPlayerId });
-          currentCycle = updatedCycle;
-        }
+        const finalizedSchedule = schedule.map(m => {
+          if (m.breakPlayerId) {
+            // Respect pre-assigned break
+            currentCycle = {
+              ...currentCycle,
+              brokenThisCycle: [...currentCycle.brokenThisCycle, m.breakPlayerId]
+            };
+            // If everyone broke in this cycle, reset
+            if (currentCycle.brokenThisCycle.length === players.length) {
+              currentCycle.brokenThisCycle = [];
+            }
+            return m;
+          } else {
+            // Fallback for matches without pre-assigned break
+            const { breakPlayerId, updatedCycle } = assignBreakPlayer(m, currentCycle);
+            currentCycle = updatedCycle;
+            return { ...m, breakPlayerId };
+          }
+        });
 
         const newSession: Session = {
           id: crypto.randomUUID(),
+          title,
           players,
           schedule: finalizedSchedule,
           results: [],
@@ -108,6 +120,36 @@ export const useSessionStore = create<SessionState>()(
         const newResults = [...session.results.slice(0, -1), result];
 
         set({ session: { ...session, results: newResults } });
+      },
+
+      extendSession: () => {
+        const { session } = get();
+        if (!session) return;
+
+        // Generate more matches using the same settings
+        const newMatches = generateSchedule(session.players, session.scheduleDepth);
+        
+        // Update indices to continue from where we left off
+        const startIndex = session.schedule.length;
+        const offsetMatches = newMatches.map((m, i) => ({
+          ...m,
+          index: startIndex + i + 1,
+          id: crypto.randomUUID() // Ensure unique IDs for extended matches
+        }));
+
+        set({
+          session: {
+            ...session,
+            schedule: [...session.schedule, ...offsetMatches],
+            status: 'active'
+          }
+        });
+      },
+
+      endSessionEarly: () => {
+        const { session } = get();
+        if (!session) return;
+        set({ session: { ...session, status: 'completed' } });
       },
 
       resetSession: () => {

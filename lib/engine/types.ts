@@ -37,8 +37,6 @@ export interface PlayerStats {
 
 export interface BreakCycle {
   queue: PlayerId[];      // full ordered list of all players
-  pointer: number;        // index of next-to-break
-  cycleNumber: number;    // how many full cycles have completed
   brokenThisCycle: PlayerId[];
 }
 
@@ -46,6 +44,7 @@ export type ScheduleDepth = 'one-pass' | 'full';
 
 export interface Session {
   id: string;
+  title: string;
   players: Player[];
   schedule: Match[];
   results: MatchResult[];

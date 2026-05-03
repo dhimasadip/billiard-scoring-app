@@ -9,10 +9,15 @@ import { cn } from '@/lib/utils';
 export default function MatchPage() {
   const router = useRouter();
   const { session, submitResult } = useSessionStore();
+  
+  // Capture the index when the page was first loaded to prevent flickering
+  // when currentMatchIndex advances in the store.
+  const [initialMatchIndex] = useState(session?.currentMatchIndex ?? 0);
+  
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
 
-  const match = session?.schedule[session?.currentMatchIndex];
+  const match = session?.schedule[initialMatchIndex];
 
   if (!session || !match) {
     return null;
@@ -41,11 +46,22 @@ export default function MatchPage() {
       </header>
 
       {/* Break Indicator */}
-      <div className="bg-primary/10 border-y border-primary/20 py-4 px-6 flex items-center justify-center gap-3">
-        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-        <span className="text-sm font-bold tracking-wide">
-          {session.players.find(p => p.id === match.breakPlayerId)?.name} BREAKS
-        </span>
+      <div className="bg-primary/10 border-y border-primary/20 py-4 px-6 flex flex-col items-center justify-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+          <span className="text-sm font-bold tracking-wide">
+            {session.players.find(p => p.id === match.breakPlayerId)?.name} BREAKS
+          </span>
+        </div>
+        
+        {match.sittingOut.length > 0 && (
+          <div className="flex items-center gap-2 text-[10px] text-text-secondary">
+            <span className="uppercase font-bold tracking-widest opacity-50">Sitting Out:</span>
+            <span className="font-bold">
+              {match.sittingOut.map(pid => session.players.find(p => p.id === pid)?.name).join(', ')}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Teams & Scores */}
@@ -76,7 +92,7 @@ export default function MatchPage() {
                 {scoreA}
               </div>
               <button 
-                onClick={() => setScoreA(scoreA + 1)}
+                onClick={() => setScoreA(Math.min(8, scoreA + 1))}
                 className="w-14 h-14 rounded-xl bg-surface border border-border flex items-center justify-center text-text-primary active:bg-border"
               >
                 <Plus size={24} />
@@ -116,7 +132,7 @@ export default function MatchPage() {
                 {scoreB}
               </div>
               <button 
-                onClick={() => setScoreB(scoreB + 1)}
+                onClick={() => setScoreB(Math.min(8, scoreB + 1))}
                 className="w-14 h-14 rounded-xl bg-surface border border-border flex items-center justify-center text-text-primary active:bg-border"
               >
                 <Plus size={24} />

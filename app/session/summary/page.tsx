@@ -2,13 +2,16 @@
 
 import { useSessionStore } from '@/store/sessionStore';
 import { useRouter } from 'next/navigation';
-import { Trophy, RefreshCw, ChevronLeft } from 'lucide-react';
+import { Trophy, RefreshCw, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlayerStats } from '@/lib/engine/types';
+import { Modal } from '@/components/ui/Modal';
+import { useState } from 'react';
 
 export default function SummaryPage() {
   const router = useRouter();
   const { session, resetSession } = useSessionStore();
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
 
   if (!session) return null;
 
@@ -36,99 +39,86 @@ export default function SummaryPage() {
   });
 
   const sortedStats = [...stats].sort((a, b) => {
+    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.wins !== a.wins) return b.wins - a.wins;
-    return b.totalPoints - a.totalPoints;
+    return b.winRate - a.winRate;
   });
 
   const mvp = sortedStats[0];
   const mvpPlayer = session.players.find(p => p.id === mvp?.playerId);
 
   const handleNewSession = () => {
-    if (confirm('Start a new session? Current session data will be cleared.')) {
-      resetSession();
-      router.push('/setup');
-    }
+    setIsNewSessionModalOpen(true);
   };
 
-  const handleExportCSV = () => {
-    const headers = ['Match #', 'Team A', 'Score A', 'Score B', 'Team B', 'Winner', 'Break Player'];
-    const rows = session.results.map(res => {
-      const match = session.schedule.find(m => m.id === res.matchId);
-      const teamA = match?.teamA.players.map(pid => session.players.find(p => p.id === pid)?.name).join(' & ');
-      const teamB = match?.teamB.players.map(pid => session.players.find(p => p.id === pid)?.name).join(' & ');
-      const breakPlayer = session.players.find(p => p.id === match?.breakPlayerId)?.name;
-      return [
-        match?.index,
-        teamA,
-        res.teamAScore,
-        res.teamBScore,
-        teamB,
-        res.winningSide === 'A' ? 'Team A' : 'Team B',
-        breakPlayer
-      ].join(',');
-    });
-
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `billiard-session-${session.id.slice(0, 8)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const confirmNewSession = () => {
+    resetSession();
+    router.push('/setup');
   };
+
+
 
   return (
     <div className="min-h-screen bg-background p-6 flex flex-col max-w-lg mx-auto pb-24">
       <header className="text-center mb-8">
-        <p className="text-[10px] font-display font-bold tracking-[0.2em] text-text-secondary uppercase mb-2">SESSION COMPLETE</p>
+        <p className="text-[10px] font-display font-bold tracking-[0.2em] text-text-secondary uppercase mb-2">SESSION LEADERBOARD</p>
         <div className="relative inline-block">
           <Trophy size={64} className="text-gold mx-auto mb-4" />
           <div className="absolute inset-0 bg-gold/20 blur-2xl -z-10 rounded-full" />
         </div>
-        <h1 className="text-2xl font-display font-bold text-text-primary uppercase tracking-tight">FINAL RESULTS</h1>
-        <p className="text-xs text-text-secondary mt-1">{session.schedule.length} Matches Played</p>
+        <h1 className="text-2xl font-display font-bold text-text-primary uppercase tracking-tight">{session.title}</h1>
+        <p className="text-xs text-text-secondary mt-1">
+          {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+        <p className="text-[10px] text-text-secondary opacity-60 mt-2 uppercase tracking-widest">{session.results.length} Matches Played</p>
       </header>
-
-      {/* MVP Section */}
-      <section className="mb-10">
-        <div className="bg-gradient-to-br from-gold/20 to-primary/5 rounded-2xl p-6 border border-gold/30 text-center relative overflow-hidden">
-          <div className="absolute top-2 right-4 text-[10px] font-bold text-gold tracking-widest uppercase">MVP</div>
-          <div className="w-20 h-20 rounded-full bg-gold/10 border-2 border-gold mx-auto mb-4 flex items-center justify-center">
-             <span className="text-3xl font-bold text-gold">{mvpPlayer?.name.charAt(0).toUpperCase()}</span>
-          </div>
-          <h2 className="text-xl font-bold text-text-primary mb-1">{mvpPlayer?.name}</h2>
-          <p className="text-sm text-gold font-medium">{mvp?.wins} Wins · {mvp?.totalPoints} Total Points</p>
-        </div>
-      </section>
 
       {/* Standings */}
       <section className="flex-1 mb-10">
         <h3 className="text-[10px] font-display font-bold tracking-widest text-text-secondary uppercase mb-4">FINAL STANDINGS</h3>
         <div className="bg-surface rounded-xl border border-border overflow-hidden">
           <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-surface-dim text-text-secondary uppercase tracking-widest text-[9px]">
+                <th className="px-4 py-3 font-bold">#</th>
+                <th className="py-3 font-bold">Player</th>
+                <th className="py-3 font-bold text-right">GP</th>
+                <th className="py-3 font-bold text-right">W</th>
+                <th className="py-3 font-bold text-right">L</th>
+                <th className="px-4 py-3 font-bold text-right">Pts</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-border/50">
               {sortedStats.map((stat, idx) => {
                 const player = session.players.find(p => p.id === stat.playerId);
+                const isFirst = idx === 0;
+
                 return (
-                  <tr key={stat.playerId} className={cn(idx < 3 && "bg-primary/5")}>
+                  <tr 
+                    key={stat.playerId} 
+                    className={cn(
+                      "transition-colors",
+                      isFirst ? "bg-primary/10" : "hover:bg-primary/5"
+                    )}
+                  >
                     <td className="px-4 py-4 w-10">
                       <div className={cn(
                         "w-6 h-6 rounded flex items-center justify-center font-bold text-[10px]",
-                        idx === 0 ? "bg-gold text-black" : 
+                        isFirst ? "bg-gold text-black" : 
                         idx === 1 ? "bg-text-secondary/40 text-text-primary" :
                         idx === 2 ? "bg-orange-800/40 text-text-primary" : "text-text-secondary"
                       )}>
-                        {idx + 1}
+                        {isFirst ? <Trophy size={12} /> : idx + 1}
                       </div>
                     </td>
                     <td className="py-4">
-                      <div className="font-bold text-text-primary">{player?.name}</div>
+                      <div className={cn("font-bold", isFirst ? "text-primary" : "text-text-primary")}>{player?.name}</div>
+                      <div className="text-[9px] text-text-secondary opacity-60">{(stat.winRate * 100).toFixed(0)}% WR</div>
                     </td>
-                    <td className="px-4 py-4 text-right">
-                      <div className="font-bold text-text-primary">{stat.wins}W</div>
-                      <div className="text-[9px] text-text-secondary">{stat.totalPoints} pts</div>
-                    </td>
+                    <td className="py-4 text-right font-medium tabular-nums">{stat.gamesPlayed}</td>
+                    <td className="py-4 text-right font-bold text-primary tabular-nums">{stat.wins}</td>
+                    <td className="py-4 text-right text-danger tabular-nums">{stat.losses}</td>
+                    <td className="px-4 py-4 text-right font-bold text-gold tabular-nums">{stat.totalPoints}</td>
                   </tr>
                 );
               })}
@@ -139,12 +129,7 @@ export default function SummaryPage() {
 
       {/* Actions */}
       <div className="space-y-3">
-        <button
-          onClick={handleExportCSV}
-          className="w-full py-3 bg-surface text-text-primary rounded-xl font-bold border border-border text-xs mb-4"
-        >
-          EXPORT CSV
-        </button>
+
         <button
           onClick={handleNewSession}
           className="w-full py-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
@@ -152,13 +137,56 @@ export default function SummaryPage() {
           <RefreshCw size={18} />
           <span>NEW SESSION</span>
         </button>
-        <button
-          onClick={() => router.push('/session')}
-          className="w-full py-4 bg-surface text-text-primary rounded-xl font-bold border border-border"
-        >
-          BACK TO SCHEDULE
-        </button>
+        {session.results.length === session.schedule.length ? (
+          <button
+            onClick={() => router.push('/session/history')}
+            className="w-full py-4 bg-surface text-text-primary rounded-xl font-bold border border-border"
+          >
+            VIEW HISTORY
+          </button>
+        ) : (
+          <button
+            onClick={() => router.push('/session')}
+            className="w-full py-4 bg-surface text-text-primary rounded-xl font-bold border border-border"
+          >
+            RESUME SESSION
+          </button>
+        )}
       </div>
+
+      <Modal
+        isOpen={isNewSessionModalOpen}
+        onClose={() => setIsNewSessionModalOpen(false)}
+        title="Start New Session?"
+        footer={
+          <>
+            <button 
+              onClick={() => setIsNewSessionModalOpen(false)}
+              className="flex-1 py-3 bg-surface border border-border rounded-xl font-bold text-xs"
+            >
+              CANCEL
+            </button>
+            <button 
+              onClick={() => {
+                setIsNewSessionModalOpen(false);
+                confirmNewSession();
+              }}
+              className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs shadow-lg shadow-primary/20"
+            >
+              START NEW
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col items-center text-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <RefreshCw size={24} />
+          </div>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            Are you sure you want to start a new session? All current standings and match history will be cleared.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
